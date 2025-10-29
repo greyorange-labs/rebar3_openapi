@@ -1,0 +1,62 @@
+# Erlang/Rebar3
+_build/
+_checkouts/
+*.beam
+*.app
+erl_crash.dump
+*.ez
+*.o
+*.so
+*.dylib
+*.dll
+
+# Rebar3
+rebar3.crashdump
+.rebar/
+.rebar3/
+
+# Erlang
+ebin/
+deps/
+.erlang.mk/
+erlang.mk
+
+# Documentation
+doc/
+*.html
+
+# Testing
+logs/
+test/*.beam
+.eunit/
+*.coverdata
+*.cover
+cover/
+
+# IDEs and editors
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+*.pid
+
+# PLT files (dialyzer)
+*.plt
+.dialyzer_plt
+
+# Build artifacts
+priv/*.so
+c_src/*.o
+
+# Generated files that might be created during testing
+src/test_*.erl
+.openapi_manifest.json

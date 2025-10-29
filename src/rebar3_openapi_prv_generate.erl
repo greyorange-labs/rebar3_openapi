@@ -86,7 +86,7 @@ validate_args(Args, State) ->
     %% Check required arguments
     SpecFile = proplists:get_value(spec, Args),
     HandlerPath = proplists:get_value(handler, Args),
-    
+
     if
         SpecFile =:= undefined ->
             {error, {missing_required, "--spec"}};
@@ -105,17 +105,17 @@ validate_args(Args, State) ->
 build_opts(Args, _State) ->
     SpecFile = proplists:get_value(spec, Args),
     HandlerPath = proplists:get_value(handler, Args),
-    
+
     %% Extract handler module name and directory from path
     HandlerDir = filename:dirname(HandlerPath),
     HandlerFile = filename:basename(HandlerPath, ".erl"),
-    
+
     LogicModule = proplists:get_value(logic_module, Args, HandlerFile ++ "_logic_handler"),
     PackageName = proplists:get_value(package_name, Args, HandlerFile),
     Update = proplists:get_value(update, Args, false),
     DryRun = proplists:get_value(dry_run, Args, false),
     Force = proplists:get_value(force, Args, false),
-    
+
     Opts = #{
         spec_file => SpecFile,
         handler => HandlerFile,
@@ -127,7 +127,7 @@ build_opts(Args, _State) ->
         dry_run => DryRun,
         force => Force
     },
-    
+
     {ok, Opts}.
 
 -spec execute_generation(map(), rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.

@@ -10,7 +10,7 @@
 main([SpecFile]) ->
     io:format("~n=== Testing YAML Parser ===~n"),
     io:format("File: ~s~n~n", [SpecFile]),
-    
+
     %% Check file exists
     case filelib:is_file(SpecFile) of
         false ->
@@ -19,18 +19,18 @@ main([SpecFile]) ->
         true ->
             ok
     end,
-    
+
     %% Test parsing
     io:format("Parsing...~n"),
     case rebar3_openapi_parser:parse_file(SpecFile) of
         {ok, Spec} ->
             io:format("✓ Parsing successful~n~n"),
-            
+
             %% Show parsed info
             Info = rebar3_openapi_parser:get_info(Spec),
             io:format("Title: ~s~n", [maps:get(<<"title">>, Info, <<"unknown">>)]),
             io:format("Version: ~s~n", [maps:get(<<"version">>, Info, <<"unknown">>)]),
-            
+
             Paths = rebar3_openapi_parser:get_paths(Spec),
             io:format("~nPaths (~p):~n", [maps:size(Paths)]),
             lists:foreach(
@@ -39,7 +39,7 @@ main([SpecFile]) ->
                 end,
                 maps:keys(Paths)
             ),
-            
+
             Operations = rebar3_openapi_parser:get_operations(Spec),
             io:format("~nOperations (~p):~n", [length(Operations)]),
             lists:foreach(
@@ -49,10 +49,10 @@ main([SpecFile]) ->
                 end,
                 Operations
             ),
-            
+
             io:format("~n✓ All tests passed!~n"),
             halt(0);
-            
+
         {error, Reason} ->
             io:format("✗ Parsing failed: ~p~n", [Reason]),
             io:format("~nDebug info:~n"),

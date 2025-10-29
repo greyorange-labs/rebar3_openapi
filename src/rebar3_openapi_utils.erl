@@ -60,23 +60,42 @@ write_file(File, Data) ->
 
 -spec info(string(), list()) -> ok.
 info(Format, Args) ->
-    rebar_api:info(Format, Args).
+    log(info, Format, Args).
 
 -spec warn(string(), list()) -> ok.
 warn(Format, Args) ->
-    rebar_api:warn(Format, Args).
+    log(warn, Format, Args).
 
 -spec error(string(), list()) -> ok.
 error(Format, Args) ->
-    rebar_api:error(Format, Args).
+    log(error, Format, Args).
 
 -spec debug(string(), list()) -> ok.
 debug(Format, Args) ->
-    rebar_api:debug(Format, Args).
+    log(debug, Format, Args).
 
 -spec abort(string(), list()) -> no_return().
 abort(Format, Args) ->
-    rebar_api:abort(Format, Args).
+    log(error, Format, Args),
+    erlang:error({abort, lists:flatten(io_lib:format(Format, Args))}).
+
+%% @doc Internal logging - works in both rebar3 and standalone mode
+-spec log(atom(), string(), list()) -> ok.
+log(Level, Format, Args) ->
+    case erlang:function_exported(rebar_api, Level, 2) of
+        true ->
+            %% Running in rebar3 context
+            rebar_api:Level(Format, Args);
+        false ->
+            %% Running standalone (escript)
+            Prefix = case Level of
+                info -> "===> ";
+                warn -> "===> Warning: ";
+                error -> "===> Error: ";
+                debug -> "===> Debug: "
+            end,
+            io:format(Prefix ++ Format ++ "~n", Args)
+    end.
 
 %%%===================================================================
 %%% Error Formatting

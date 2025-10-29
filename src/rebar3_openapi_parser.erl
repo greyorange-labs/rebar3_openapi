@@ -113,7 +113,7 @@ parse_yaml_file(File) ->
     try
         %% Ensure yamerl application is started
         application:ensure_all_started(yamerl),
-        
+
         [Doc | _] = yamerl_constr:file(File, [{str_node_as_binary, true}]),
         Spec = yaml_to_map(Doc),
         case validate_spec(Spec) of
@@ -130,8 +130,8 @@ parse_yaml(Content) ->
     try
         %% Ensure yamerl application is started
         application:ensure_all_started(yamerl),
-        
-        [Doc | _] = yamerl_constr:string(binary_to_list(Content), 
+
+        [Doc | _] = yamerl_constr:string(binary_to_list(Content),
                                          [{str_node_as_binary, true}]),
         Spec = yaml_to_map(Doc),
         case validate_spec(Spec) of

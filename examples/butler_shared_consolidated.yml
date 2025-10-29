@@ -1,0 +1,454 @@
+openapi: 3.0.0
+info:
+  title: Butler Shared API
+  version: 1.0.0
+  description: |
+    Consolidated API for Butler Shared services including:
+    - Infrastructure diagnostics
+    - Service diagnostics (v1 and v2)
+    - Advanced logging controls
+    - Service status
+
+servers:
+  - url: http://localhost:8181
+    description: Local development server
+
+paths:
+  # Infrastructure Diagnostics
+  /api/butler_shared/diagnose/infra:
+    post:
+      operationId: diagnose_infra
+      summary: Get Infrastructure Diagnostics Result
+      description: Retrieve diagnostic information about the infrastructure that butler_core talks to.
+      requestBody:
+        description: Payload for diagnostics API
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tests:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      [
+                        "process_registration",
+                        "influx",
+                        "kafka",
+                        "elastic",
+                        "postgres",
+                        "all",
+                        "mnesia",
+                      ]
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InfraDiagnosticResult"
+        "400":
+          description: Invalid Tests Requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InfraDiagnosticError"
+
+  # Service Diagnostics v1
+  /api/{service_name}/v1/diagnose:
+    post:
+      operationId: diagnose_service_v1
+      summary: Run diagnostic tests for a specific service diagnose category
+      parameters:
+        - name: service_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tests:
+                  type: array
+                  items:
+                    type: string
+                  example: ["pick", "put"]
+              required:
+                - tests
+              description: A list of tests to run for the specified service
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DiagnosticResultV1"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Service Diagnostics v2
+  /api/{service_name}/v2/diagnose:
+    post:
+      operationId: diagnose_service_v2
+      summary: Diagnose system health
+      description: Runs specified tests to determine the health status of the system
+      parameters:
+        - name: service_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The name of the service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tests:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of specific tests to run for diagnosis. Use ['all'] to run all available tests
+                  example: ["all"]
+                infra_list:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of specific infra tests to run for diagnosis. If not passed in the payload, all infra client tests will be executed
+                  example: ["kafka", "gen_saga"]
+              required:
+                - tests
+      responses:
+        "200":
+          description: Successful response with test results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DiagnosticResultV2"
+        "400":
+          description: Bad request due to invalid input
+        "500":
+          description: Internal server error
+
+  # Advanced Logging - Enable
+  /api/butler_shared/v1/logging/debug/enable:
+    post:
+      operationId: enable_debug_logging
+      summary: Enable advanced logging
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebugLogging"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugLogging"
+        "500":
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugLogging"
+
+  # Advanced Logging - Disable
+  /api/butler_shared/v1/logging/debug/disable:
+    post:
+      operationId: disable_debug_logging
+      summary: Disable advanced logging
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DebugLoggingNameOnly"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: string
+                example: Successful
+        "500":
+          description: Service Unavailable
+
+  # Advanced Logging - Get Status
+  /api/butler_shared/v1/logging/debug:
+    get:
+      operationId: get_debug_logging_status
+      summary: Get advanced logging status
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugLogging"
+
+  # Service Status
+  /v1/status:
+    get:
+      operationId: get_service_status
+      summary: Get Service Status
+      description: Returns the current status and version of the service
+      responses:
+        "200":
+          description: Successful response with the service status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceStatus"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    # Infrastructure Diagnostics Schemas
+    InfraDiagnosticResult:
+      type: object
+      properties:
+        category_name:
+          type: string
+          enum:
+            [
+              "process_registration",
+              "influx",
+              "kafka",
+              "elastic",
+              "postgres",
+              "mnesia",
+            ]
+        test_name:
+          type: string
+          example: workers_healthy
+        status:
+          type: string
+          enum: ["fail", "pass", "undefined"]
+        error_codes:
+          type: array
+          items:
+            type: string
+        threshold:
+          type: integer
+        output:
+          type: integer
+
+    InfraDiagnosticError:
+      type: object
+      properties:
+        error:
+          type: string
+        allowed_tests:
+          type: array
+          items:
+            type: string
+      example:
+        error: "invalid_tests_requested"
+        allowed_tests:
+          [
+            "process_registration",
+            "influx",
+            "kafka",
+            "elastic",
+            "postgres",
+            "mnesia",
+          ]
+
+    # Diagnostic Results v1
+    DiagnosticResultV1:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["pass", "fail"]
+          description: The status of the test
+        service:
+          type: string
+          description: The service associated with the test
+        category:
+          type: string
+          description: The specific test category name
+        entity_type:
+          type: string
+          description: The type of entity being tested (if applicable)
+        entity_id:
+          type: string
+          description: The ID of the entity being tested (if applicable)
+        test:
+          type: string
+          description: The name of the test
+        details:
+          type: array
+          items:
+            type: string
+          description: Details about the test result
+        error_codes:
+          type: array
+          items:
+            type: string
+          description: Error codes associated with any failures
+        last_run_at:
+          type: string
+          description: Last diagnose run time in UTC
+
+    # Diagnostic Results v2
+    DiagnosticResultV2:
+      type: object
+      properties:
+        status:
+          type: string
+          description: The status of the test result
+        level:
+          type: integer
+          description: The severity level of the test result
+        service:
+          type: string
+          description: The service related to the test
+        test:
+          type: string
+          description: Test name
+        parent_test:
+          type: string
+          description: The parent test name
+        entity_type:
+          type: string
+          description: The type of entity being tested
+        entity_id:
+          type: string
+          description: The ID of the entity being tested
+        error_codes:
+          type: array
+          items:
+            type: string
+          description: An array of error codes if any
+        test_count:
+          type: integer
+          description: The count of tests run
+
+    # Debug Logging Schemas
+    DebugLogging:
+      type: array
+      items:
+        oneOf:
+          - $ref: "#/components/schemas/ProcessObject"
+          - $ref: "#/components/schemas/ModuleObject"
+          - $ref: "#/components/schemas/ModuleFunctionObject"
+
+    DebugLoggingNameOnly:
+      type: array
+      items:
+        oneOf:
+          - $ref: "#/components/schemas/ProcessNameObject"
+          - $ref: "#/components/schemas/ModuleNameObject"
+          - $ref: "#/components/schemas/FunctionNameObject"
+
+    ProcessObject:
+      type: object
+      required:
+        - process_name
+      properties:
+        process_name:
+          type: string
+        disable_after:
+          type: integer
+          description: Optional parameter to disable after a specified time
+
+    ModuleObject:
+      type: object
+      required:
+        - module_name
+      properties:
+        module_name:
+          type: string
+        disable_after:
+          type: integer
+          description: Optional parameter to disable after a specified time
+
+    ModuleFunctionObject:
+      type: object
+      required:
+        - module_name
+        - function_name
+      properties:
+        module_name:
+          type: string
+        function_name:
+          type: string
+        disable_after:
+          type: integer
+          description: Optional parameter to disable after a specified time
+
+    ProcessNameObject:
+      type: object
+      properties:
+        process_name:
+          type: string
+
+    ModuleNameObject:
+      type: object
+      properties:
+        module_name:
+          type: string
+
+    FunctionNameObject:
+      type: object
+      properties:
+        module_name:
+          type: string
+        function_name:
+          type: string
+
+    # Service Status Schema
+    ServiceStatus:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "7.2.0"
+          description: The version of the service
+        start_status:
+          type: string
+          enum: ["started", "starting"]
+          description: The startup status of the service
+
+    # Generic Error Response
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message describing the issue

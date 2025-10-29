@@ -7,7 +7,7 @@
 
 -export([
     transform/1,
-    generate_router/2,
+    generate_router/4,
     generate_handler/2,
     generate_logic_handler/2
 ]).
@@ -34,11 +34,22 @@ transform(Opts) ->
         Paths = rebar3_openapi_parser:get_paths(Spec),
 
         %% Generate router module with trails() wrapper
-        RouterFile = filename:join(OutputDir, Handler ++ "_router.erl"),
-        RouterContent = generate_router(Handler, #{
+        BaseHandlerName = case lists:suffix("_handler", Handler) of
+            true ->
+                Len = length(Handler) - length("_handler"),
+                lists:sublist(Handler, Len);
+            false ->
+                Handler
+        end,
+        RouterModule = BaseHandlerName ++ "_router",
+
+        %% Logic module is already correctly named by caller
+        ActualLogicModule = LogicModule,
+
+        RouterFile = filename:join(OutputDir, RouterModule ++ ".erl"),
+        RouterContent = generate_router(RouterModule, Handler, ActualLogicModule, #{
             operations => Operations,
-            paths => Paths,
-            logic_module => LogicModule
+            paths => Paths
         }),
         write_if_allowed(RouterFile, RouterContent, Opts),
 
@@ -60,18 +71,23 @@ transform(Opts) ->
         end,
 
         %% Generate logic handler skeleton (only if not exists)
-        LogicFile = filename:join(OutputDir, LogicModule ++ ".erl"),
+        LogicFile = filename:join(OutputDir, ActualLogicModule ++ ".erl"),
         case filelib:is_file(LogicFile) of
             true ->
-                rebar3_openapi_utils:info("Logic handler already exists, skipping: ~s", [LogicModule]);
+                rebar3_openapi_utils:info("Logic handler already exists, skipping: ~s", [ActualLogicModule]);
             false ->
-                rebar3_openapi_utils:info("Generating logic handler skeleton: ~s", [LogicModule]),
-                LogicContent = generate_logic_handler(LogicModule, #{
+                rebar3_openapi_utils:info("Generating logic handler skeleton: ~s", [ActualLogicModule]),
+                LogicContent = generate_logic_handler(ActualLogicModule, #{
                     operations => Operations,
-                    handler => Handler
+                    handler => Handler,
+                    spec => Spec
                 }),
                 write_if_allowed(LogicFile, LogicContent, Opts)
         end,
+
+        %% Generate JSON schemas for validation
+        TempDir = maps:get(temp_dir, Opts, undefined),
+        generate_schemas(OutputDir, Spec, TempDir, Opts),
 
         ok
     catch
@@ -84,10 +100,9 @@ transform(Opts) ->
     end.
 
 %% @doc Generate router module with trails() compatibility
--spec generate_router(string(), map()) -> iolist().
-generate_router(Handler, Opts) ->
+-spec generate_router(string(), string(), string(), map()) -> iolist().
+generate_router(RouterModule, Handler, LogicModule, Opts) ->
     Operations = maps:get(operations, Opts),
-    LogicModule = maps:get(logic_module, Opts),
 
     %% Group operations by path
     PathOps = group_operations_by_path(Operations),
@@ -100,7 +115,7 @@ generate_router(Handler, Opts) ->
         "%%% Provides trails() compatibility wrapper\n",
         "%%% @end\n",
         "%%%-------------------------------------------------------------------\n",
-        "-module(", Handler, "_router).\n\n",
+        "-module(", RouterModule, ").\n\n",
 
         "%% API exports\n",
         "-export([trails/0, get_paths/1, get_operations/0]).\n\n",
@@ -120,7 +135,7 @@ generate_router(Handler, Opts) ->
         "%% @doc Get paths with handler module\n",
         "get_paths(LogicModule) ->\n",
         "    [{'_', [\n",
-        generate_path_entries(PathOps, Handler),
+        generate_path_entries(PathOps, Handler, LogicModule),
         "    ]}].\n\n",
 
         "%% @doc Get all operations metadata\n",
@@ -164,18 +179,14 @@ generate_handler(Handler, Opts) ->
         "%%% Cowboy REST Callbacks\n",
         "%%%===================================================================\n\n",
 
-        "init(Req, {Operations, LogicModule}) ->\n",
-        "    %% Extract operation ID from route opts\n",
-        "    OperationId = case Operations of\n",
-        "        [Op] -> Op;  % Single operation\n",
-        "        Ops -> determine_operation(Req, Ops)\n",
-        "    end,\n",
-        "    Context = #{operation => OperationId, logic_module => LogicModule},\n",
+        "init(Req, {OperationId, Method, LogicModule}) ->\n",
+        "    %% Store method in context during init\n",
+        "    Context = #{operation => OperationId, method => Method, logic_module => LogicModule},\n",
         "    {cowboy_rest, Req, Context}.\n\n",
 
-        "allowed_methods(Req, Context) ->\n",
-        "    Methods = ", generate_allowed_methods_list(AllMethods), ",\n",
-        "    {Methods, Req, Context}.\n\n",
+        "allowed_methods(Req, #{method := Method} = Context) ->\n",
+        "    %% Return path-specific allowed methods from context\n",
+        "    {[Method], Req, Context}.\n\n",
 
         "content_types_accepted(Req, Context) ->\n",
         "    {[{{<<\"application\">>, <<\"json\">>, '*'}, handle_json_accepted}], Req, Context}.\n\n",
@@ -186,38 +197,39 @@ generate_handler(Handler, Opts) ->
         "handle_json_accepted(Req, #{operation := OpId, logic_module := LogicModule} = Context) ->\n",
         "    %% Delegate to logic handler\n",
         "    case LogicModule:accept_callback(default, OpId, Req, Context) of\n",
-        "        {ok, Req2, Context2} ->\n",
-        "            {true, Req2, Context2};\n",
-        "        {error, Reason, Req2, Context2} ->\n",
-        "            rebar3_openapi_utils:error(\"Accept callback failed: ~p\", [Reason]),\n",
-        "            {false, Req2, Context2}\n",
+        "        {ok, StatusCode, Headers, Body, Req2, Context2} ->\n",
+        "            %% Build and send response\n",
+        "            Req3 = cowboy_req:reply(StatusCode, Headers, Body, Req2),\n",
+        "            {stop, Req3, Context2};\n",
+        "        {error, StatusCode, Headers, Body, Req2, Context2} ->\n",
+        "            %% Build and send error response\n",
+        "            Req3 = cowboy_req:reply(StatusCode, Headers, Body, Req2),\n",
+        "            {stop, Req3, Context2}\n",
         "    end.\n\n",
 
         "handle_json_provided(Req, #{operation := OpId, logic_module := LogicModule} = Context) ->\n",
         "    %% Delegate to logic handler\n",
         "    case LogicModule:provide_callback(default, OpId, Req, Context) of\n",
-        "        {ok, Body, Req2, Context2} ->\n",
-        "            {jsx:encode(Body), Req2, Context2};\n",
-        "        {error, Reason, Req2, Context2} ->\n",
-        "            rebar3_openapi_utils:error(\"Provide callback failed: ~p\", [Reason]),\n",
-        "            {<<\"{\\\"error\\\": \\\"internal_error\\\"}\">>, Req2, Context2}\n",
+        "        {ok, StatusCode, Headers, Body, Req2, Context2} ->\n",
+        "            %% Build and send response\n",
+        "            Req3 = cowboy_req:reply(StatusCode, Headers, Body, Req2),\n",
+        "            {stop, Req3, Context2};\n",
+        "        {error, StatusCode, Headers, Body, Req2, Context2} ->\n",
+        "            %% Build and send error response\n",
+        "            Req3 = cowboy_req:reply(StatusCode, Headers, Body, Req2),\n",
+        "            {stop, Req3, Context2}\n",
         "    end.\n\n",
 
         "%%%===================================================================\n",
         "%%% Internal Functions\n",
-        "%%%===================================================================\n\n",
-
-        "determine_operation(Req, Operations) ->\n",
-        "    Method = cowboy_req:method(Req),\n",
-        "    %% Map HTTP method to operation ID\n",
-        "    %% This is a simplified version - enhance based on your needs\n",
-        "    hd(Operations).\n"
+        "%%%===================================================================\n\n"
     ].
 
 %% @doc Generate logic handler skeleton
 -spec generate_logic_handler(string(), map()) -> iolist().
 generate_logic_handler(LogicModule, Opts) ->
     Operations = maps:get(operations, Opts),
+    Handler = maps:get(handler, Opts, ""),
 
     %% Separate operations by HTTP method
     {GetOps, MutateOps} = lists:partition(
@@ -239,9 +251,25 @@ generate_logic_handler(LogicModule, Opts) ->
         "%% API exports\n",
         "-export([\n",
         "    provide_callback/4,\n",
-        "    accept_callback/4\n",
+        "    accept_callback/4,\n",
+        "    get_schema/1\n",
         "]).\n\n",
 
+        "%%%===================================================================\n",
+        "%%% Schema Loader Helper\n",
+        "%%%===================================================================\n\n",
+        "%% @doc Load JSON schema for validation\n",
+        "%% Schemas are located in priv/schemas/", Handler, "/ directory\n",
+        "%% Example: get_schema('ErrorResponse') or get_schema(\"ErrorResponse\")\n",
+        "get_schema(SchemaName) when is_atom(SchemaName) ->\n",
+        "    get_schema(atom_to_list(SchemaName));\n",
+        "get_schema(SchemaName) when is_list(SchemaName) ->\n",
+        "    PrivDir = code:priv_dir(", Handler, "_app),  %% Adjust to your app name\n",
+        "    SchemaFile = filename:join([PrivDir, \"schemas\", \"", Handler, "\", SchemaName ++ \".json\"]),\n",
+        "    case file:read_file(SchemaFile) of\n",
+        "        {ok, SchemaBin} -> jsx:decode(SchemaBin, [return_maps]);\n",
+        "        {error, Reason} -> error({schema_not_found, SchemaName, Reason})\n",
+        "    end.\n\n",
         "%%%===================================================================\n",
         "%%% API - Provide Callbacks (GET, HEAD)\n",
         "%%%===================================================================\n\n",
@@ -262,11 +290,14 @@ generate_logic_handler(LogicModule, Opts) ->
 
         "provide_callback(_Class, OperationId, Req, Context) ->\n",
         "    rebar3_openapi_utils:warn(\"Unimplemented operation: ~p\", [OperationId]),\n",
-        "    {error, not_implemented, Req, Context}.\n\n",
+        "    ErrorBody = jsx:encode(#{error => <<\"not_implemented\">>}),\n",
+        "    {error, 501, #{<<\"content-type\">> => <<\"application/json\">>}, ErrorBody, Req, Context}.\n\n",
 
         "accept_callback(_Class, OperationId, Req, Context) ->\n",
         "    rebar3_openapi_utils:warn(\"Unimplemented operation: ~p\", [OperationId]),\n",
-        "    {error, not_implemented, Req, Context}.\n"
+        "    ErrorBody = jsx:encode(#{error => <<\"not_implemented\">>}),\n",
+        "    {error, 501, #{<<\"content-type\">> => <<\"application/json\">>}, ErrorBody, Req, Context}.\n"
+
     ].
 
 %%%===================================================================
@@ -294,24 +325,31 @@ get_all_methods(Operations) ->
     Methods = lists:usort([Method || {_Path, Method, _Op} <- Operations]),
     lists:map(fun(M) -> string:uppercase(binary_to_list(M)) end, Methods).
 
--spec generate_path_entries([{binary(), [{binary(), map()}]}], string()) -> iolist().
-generate_path_entries(PathOps, Handler) ->
-    lists:map(
+-spec generate_path_entries([{binary(), [{binary(), map()}]}], string(), string()) -> iolist().
+generate_path_entries(PathOps, Handler, LogicModule) ->
+    AllEntries = lists:flatten(lists:map(
         fun({Path, Methods}) ->
-            OperationIds = [maps:get(<<"operationId">>, Op, <<"unknown">>)
-                           || {_Method, Op} <- Methods],
-            [
-                "        {<<\"", Path, "\">>, ", Handler, ", {",
-                string:join([io_lib:format("'~s'", [OpId]) || OpId <- OperationIds], ", "),
-                ", ", Handler, "_logic_handler}}",
-                case PathOps of
-                    [_] -> "\n";
-                    _ -> ",\n"
-                end
-            ]
+            lists:map(
+                fun({Method, Op}) ->
+                    OpId = maps:get(<<"operationId">>, Op, <<"unknown">>),
+                    MethodUpper = string:uppercase(binary_to_list(Method)),
+                    {Path, OpId, MethodUpper}
+                end,
+                Methods
+            )
         end,
         PathOps
-    ).
+    )),
+    string:join(
+        lists:map(
+            fun({Path, OpId, MethodUpper}) ->
+                io_lib:format("        {<<\"~s\">>, ~s, {'~s', <<\"~s\">>, ~s}}",
+                             [Path, Handler, OpId, MethodUpper, LogicModule])
+            end,
+            AllEntries
+        ),
+        ",\n"
+    ) ++ "\n".
 
 -spec generate_operations_list([{binary(), binary(), map()}]) -> iolist().
 generate_operations_list(Operations) ->
@@ -344,9 +382,11 @@ generate_provide_callbacks(Operations) ->
                 "provide_callback(_Class, '", OpId, "', Req, Context) ->\n",
                 "    %% TODO: Implement business logic\n",
                 "    %% Example: Call your controller function here\n",
-                "    %% {Code, RespBody} = your_controller:handle_", OpId, "(),\n",
-                "    Response = #{message => <<\"Not implemented\">>},\n",
-                "    {ok, Response, Req, Context};\n\n"
+                "    %% Result = your_controller:handle_", OpId, "(Req),\n",
+                "    %% ResponseBody = jsx:encode(Result),\n",
+                "    ResponseBody = jsx:encode(#{message => <<\"Not implemented\">>}),\n",
+                "    Headers = #{<<\"content-type\">> => <<\"application/json\">>},\n",
+                "    {ok, 200, Headers, ResponseBody, Req, Context};\n\n"
             ]
         end,
         Operations
@@ -360,6 +400,11 @@ generate_accept_callbacks(Operations) ->
         fun({Path, Method, Op}) ->
             OpId = maps:get(<<"operationId">>, Op, <<"unknown">>),
             Summary = maps:get(<<"summary">>, Op, <<"No description">>),
+            StatusCode = case Method of
+                <<"post">> -> "201";  % Created
+                <<"delete">> -> "204";  % No Content
+                _ -> "200"  % OK for PUT, PATCH
+            end,
             [
                 "%% @doc ", Summary, "\n",
                 "%% Path: ", Path, " (", string:uppercase(binary_to_list(Method)), ")\n",
@@ -368,8 +413,19 @@ generate_accept_callbacks(Operations) ->
                 "    %% Example: Parse request body and call your controller\n",
                 "    %% {ok, Body, Req2} = cowboy_req:read_body(Req),\n",
                 "    %% RequestData = jsx:decode(Body, [return_maps]),\n",
-                "    %% Result = your_controller:handle_", OpId, "(RequestData),\n",
-                "    {ok, Req, Context};\n\n"
+                "    %% Validate request\n",
+                "    %% case jesse:validate_with_schema(get_schema('", OpId, "_request'), RequestData) of\n",
+                "    %%     {ok, ValidData} -> \n",
+                "    %%         Result = your_controller:handle_", OpId, "(ValidData),\n",
+                "    %%         ResponseBody = jsx:encode(Result),\n",
+                "    %%         {ok, ", StatusCode, ", Headers, ResponseBody, Req2, Context};\n",
+                "    %%     {error, ValidationErrors} ->\n",
+                "    %%         ErrorBody = jsx:encode(#{error => <<\"validation_failed\">>, details => ValidationErrors}),\n",
+                "    %%         {error, 400, Headers, ErrorBody, Req2, Context}\n",
+                "    %% end.\n",
+                "    ResponseBody = jsx:encode(#{message => <<\"Not implemented\">>}),\n",
+                "    Headers = #{<<\"content-type\">> => <<\"application/json\">>},\n",
+                "    {ok, ", StatusCode, ", Headers, ResponseBody, Req, Context};\n\n"
             ]
         end,
         Operations
@@ -396,5 +452,58 @@ write_if_allowed(File, Content, Opts) ->
             rebar3_openapi_utils:write_file(File, Content),
             rebar3_openapi_utils:info("Generated: ~s", [File]),
             ok
+    end.
+
+-spec generate_schemas(file:filename(), map(), file:filename(), map()) -> ok.
+generate_schemas(OutputDir, Spec, TempDir, Opts) ->
+    try
+        Handler = maps:get(handler, Opts, "handler"),
+
+        %% Create priv/ directory
+        PrivDir = filename:join(OutputDir, "priv"),
+        rebar3_openapi_utils:ensure_dir(filename:join(PrivDir, "dummy")),
+
+        %% Copy and rename openapi.json to {handler}_openapi.json
+        SourceOpenAPIJson = filename:join([TempDir, "priv", "openapi.json"]),
+        DestOpenAPIJson = filename:join(PrivDir, Handler ++ "_openapi.json"),
+        case filelib:is_file(SourceOpenAPIJson) of
+            true ->
+                {ok, _} = file:copy(SourceOpenAPIJson, DestOpenAPIJson),
+                rebar3_openapi_utils:info("Copied OpenAPI spec to: ~s", [DestOpenAPIJson]);
+            false ->
+                rebar3_openapi_utils:warn("OpenAPI JSON not found in temp dir: ~s", [SourceOpenAPIJson])
+        end,
+
+        %% Create handler-specific schemas directory: priv/schemas/{handler}/
+        HandlerSchemasDir = filename:join([PrivDir, "schemas", Handler]),
+        rebar3_openapi_utils:ensure_dir(filename:join(HandlerSchemasDir, "dummy")),
+
+        %% Extract and generate individual schema files for Jesse validation
+        Schemas = maps:get(<<"components">>, Spec, #{}),
+        ComponentSchemas = maps:get(<<"schemas">>, Schemas, #{}),
+
+        case maps:size(ComponentSchemas) of
+            0 ->
+                rebar3_openapi_utils:info("No schemas to generate", []);
+            Count ->
+                rebar3_openapi_utils:info("Generating ~p schema files in ~s", [Count, HandlerSchemasDir]),
+                maps:foreach(
+                    fun(SchemaName, SchemaData) ->
+                        FileName = binary_to_list(SchemaName) ++ ".json",
+                        FilePath = filename:join(HandlerSchemasDir, FileName),
+                        SchemaJson = jsx:encode(SchemaData, [{space, 2}, {indent, 2}]),
+                        ok = file:write_file(FilePath, SchemaJson),
+                        rebar3_openapi_utils:debug("Generated schema: ~s", [FilePath])
+                    end,
+                    ComponentSchemas
+                )
+        end,
+
+        ok
+    catch
+        _:SchemaError:SchemaStack ->
+            rebar3_openapi_utils:warn("Schema generation failed: ~p", [SchemaError]),
+            rebar3_openapi_utils:debug("Stack: ~p", [SchemaStack]),
+            ok  % Don't fail transformation if schema generation fails
     end.
 

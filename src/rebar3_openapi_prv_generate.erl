@@ -11,7 +11,7 @@
 
 -define(PROVIDER, generate).
 -define(NAMESPACE, openapi).
--define(DEPS, [app_discovery]).
+-define(DEPS, [{default, app_discovery}]).
 
 %%%===================================================================
 %%% API

@@ -56,14 +56,14 @@ Generate a handler from an OpenAPI spec:
 
 ```bash
 rebar3 openapi generate \
-    --spec specs/my_api.yml \
-    --handler my_api_handler
+    --spec /path/to/specs/my_api.yml \
+    --handler /path/to/src/my_api_handler.erl
 ```
 
-This creates:
-- `src/my_api_router.erl`
-- `src/my_api_handler.erl`
-- `src/my_api_logic_handler.erl`
+This creates in the same directory as the handler:
+- `my_api_router.erl`
+- `my_api_handler.erl`
+- `my_api_logic_handler.erl`
 
 ### Simple Extraction
 
@@ -71,7 +71,7 @@ Extract OpenAPI from an existing handler:
 
 ```bash
 rebar3 openapi extract \
-    --handler my_api_handler \
+    --handler /path/to/src/my_api_handler.erl \
     --output specs/generated.yml
 ```
 
@@ -81,8 +81,8 @@ Validate handler against spec:
 
 ```bash
 rebar3 openapi validate \
-    --handler my_api_handler \
-    --spec specs/my_api.yml
+    --handler /path/to/src/my_api_handler.erl \
+    --spec /path/to/specs/my_api.yml
 ```
 
 ## Generate Command Examples
@@ -92,7 +92,7 @@ rebar3 openapi validate \
 ```bash
 rebar3 openapi generate \
     --spec examples/simple_api.yml \
-    --handler simple_api_handler
+    --handler src/simple_api_handler.erl
 ```
 
 **Output:**

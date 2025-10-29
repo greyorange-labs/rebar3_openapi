@@ -25,12 +25,11 @@ init(State) ->
         {module, ?MODULE},
         {bare, true},
         {deps, ?DEPS},
-        {example, "rebar3 openapi generate --spec specs/api.yml --handler my_http_handler"},
+        {example, "rebar3 openapi generate --spec /path/to/spec.yml --handler /path/to/handler.erl"},
         {opts, [
-            {spec, $s, "spec", string, "Path to OpenAPI specification file (YAML or JSON)"},
-            {app, $a, "app", string, "Application name where handler will be generated"},
-            {handler, $h, "handler", string, "Handler module name (e.g., bsh_http_handler)"},
-            {logic_module, $l, "logic-module", string, "Logic handler module name (optional)"},
+            {spec, $s, "spec", string, "Full path to OpenAPI specification file (YAML or JSON)"},
+            {handler, $h, "handler", string, "Full path to handler file (e.g., /path/to/bsh_http_handler.erl)"},
+            {logic_module, $l, "logic-module", string, "Logic handler module name (optional, default: <handler>_logic_handler)"},
             {package_name, $p, "package-name", string, "Package name for openapi-generator (optional)"},
             {update, $u, "update", boolean, "Update existing handler (preserve business logic)"},
             {dry_run, $d, "dry-run", boolean, "Show what would be generated without creating files"},
@@ -86,12 +85,12 @@ format_error(Reason) ->
 validate_args(Args, State) ->
     %% Check required arguments
     SpecFile = proplists:get_value(spec, Args),
-    Handler = proplists:get_value(handler, Args),
-
+    HandlerPath = proplists:get_value(handler, Args),
+    
     if
         SpecFile =:= undefined ->
             {error, {missing_required, "--spec"}};
-        Handler =:= undefined ->
+        HandlerPath =:= undefined ->
             {error, {missing_required, "--handler"}};
         true ->
             case filelib:is_file(SpecFile) of
@@ -103,47 +102,32 @@ validate_args(Args, State) ->
     end.
 
 -spec build_opts([{atom(), term()}], rebar_state:t()) -> {ok, map()}.
-build_opts(Args, State) ->
+build_opts(Args, _State) ->
     SpecFile = proplists:get_value(spec, Args),
-    Handler = proplists:get_value(handler, Args),
-    App = proplists:get_value(app, Args),
-    LogicModule = proplists:get_value(logic_module, Args, Handler ++ "_logic_handler"),
-    PackageName = proplists:get_value(package_name, Args, Handler),
+    HandlerPath = proplists:get_value(handler, Args),
+    
+    %% Extract handler module name and directory from path
+    HandlerDir = filename:dirname(HandlerPath),
+    HandlerFile = filename:basename(HandlerPath, ".erl"),
+    
+    LogicModule = proplists:get_value(logic_module, Args, HandlerFile ++ "_logic_handler"),
+    PackageName = proplists:get_value(package_name, Args, HandlerFile),
     Update = proplists:get_value(update, Args, false),
     DryRun = proplists:get_value(dry_run, Args, false),
     Force = proplists:get_value(force, Args, false),
-
-    %% Determine output directory
-    OutputDir = case App of
-        undefined ->
-            %% Use first app or current directory
-            case rebar_state:project_apps(State) of
-                [AppInfo | _] ->
-                    filename:join(rebar_app_info:dir(AppInfo), "src");
-                [] ->
-                    "src"
-            end;
-        AppName ->
-            case rebar3_openapi_utils:find_app_dir(list_to_atom(AppName), State) of
-                {ok, Dir} ->
-                    filename:join(Dir, "src");
-                {error, not_found} ->
-                    throw({app_not_found, AppName})
-            end
-    end,
-
+    
     Opts = #{
         spec_file => SpecFile,
-        handler => Handler,
+        handler => HandlerFile,
+        handler_path => HandlerPath,
         logic_module => LogicModule,
         package_name => PackageName,
-        output_dir => OutputDir,
+        output_dir => HandlerDir,
         update => Update,
         dry_run => DryRun,
-        force => Force,
-        state => State
+        force => Force
     },
-
+    
     {ok, Opts}.
 
 -spec execute_generation(map(), rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.

@@ -25,12 +25,10 @@ init(State) ->
         {module, ?MODULE},
         {bare, true},
         {deps, ?DEPS},
-        {example, "rebar3 openapi extract --handler my_http_handler --output spec.yml"},
+        {example, "rebar3 openapi extract --handler /path/to/handler.erl --output spec.yml"},
         {opts, [
-            {handler, $h, "handler", string, "Handler module name to extract from"},
-            {app, $a, "app", string, "Application name where handler is located"},
+            {handler, $h, "handler", string, "Full path to handler file to extract from"},
             {output, $o, "output", string, "Output file path for OpenAPI spec (YAML or JSON)"},
-            {output_dir, $d, "output-dir", string, "Output directory for extracting all handlers"},
             {format, $f, "format", string, "Output format: yaml or json (default: yaml)"}
         ]},
         {short_desc, "Extract OpenAPI specification from Erlang handlers"},
@@ -76,70 +74,38 @@ format_error(Reason) ->
 
 -spec validate_args([{atom(), term()}], rebar_state:t()) -> {ok, map()} | {error, term()}.
 validate_args(Args, State) ->
-    Handler = proplists:get_value(handler, Args),
+    HandlerPath = proplists:get_value(handler, Args),
     Output = proplists:get_value(output, Args),
-    OutputDir = proplists:get_value(output_dir, Args),
 
-    %% Either handler+output OR output_dir must be specified
     if
-        Handler =/= undefined, Output =/= undefined ->
-            build_single_opts(Args, State);
-        OutputDir =/= undefined ->
-            build_batch_opts(Args, State);
-        Handler =:= undefined ->
-            {error, {missing_required, "--handler or --output-dir"}};
+        HandlerPath =:= undefined ->
+            {error, {missing_required, "--handler"}};
         Output =:= undefined ->
             {error, {missing_required, "--output"}};
         true ->
-            {error, invalid_arguments}
+            case filelib:is_file(HandlerPath) of
+                false ->
+                    {error, {handler_not_found, HandlerPath}};
+                true ->
+                    build_single_opts(Args, State)
+            end
     end.
 
 -spec build_single_opts([{atom(), term()}], rebar_state:t()) -> {ok, map()}.
-build_single_opts(Args, State) ->
-    Handler = proplists:get_value(handler, Args),
+build_single_opts(Args, _State) ->
+    HandlerPath = proplists:get_value(handler, Args),
     Output = proplists:get_value(output, Args),
-    App = proplists:get_value(app, Args),
     Format = determine_format(proplists:get_value(format, Args, "yaml"), Output),
 
-    %% Determine app directory
-    AppDir = case App of
-        undefined ->
-            case rebar_state:project_apps(State) of
-                [AppInfo | _] ->
-                    rebar_app_info:dir(AppInfo);
-                [] ->
-                    "."
-            end;
-        AppName ->
-            case rebar3_openapi_utils:find_app_dir(list_to_atom(AppName), State) of
-                {ok, Dir} -> Dir;
-                {error, not_found} -> throw({app_not_found, AppName})
-            end
-    end,
+    %% Extract handler module name from path
+    Handler = filename:basename(HandlerPath, ".erl"),
 
     Opts = #{
         mode => single,
         handler => Handler,
+        handler_path => HandlerPath,
         output => Output,
-        format => Format,
-        app_dir => AppDir,
-        state => State
-    },
-
-    {ok, Opts}.
-
--spec build_batch_opts([{atom(), term()}], rebar_state:t()) -> {ok, map()}.
-build_batch_opts(Args, State) ->
-    OutputDir = proplists:get_value(output_dir, Args),
-    App = proplists:get_value(app, Args),
-    Format = proplists:get_value(format, Args, "yaml"),
-
-    Opts = #{
-        mode => batch,
-        output_dir => OutputDir,
-        app => App,
-        format => list_to_atom(Format),
-        state => State
+        format => Format
     },
 
     {ok, Opts}.
@@ -160,14 +126,14 @@ determine_format(_, _) -> yaml.
 
 -spec execute_extraction(map(), rebar_state:t()) -> {ok, rebar_state:t()} | {error, string()}.
 execute_extraction(#{mode := single} = Opts, State) ->
-    Handler = maps:get(handler, Opts),
+    HandlerPath = maps:get(handler_path, Opts),
     Output = maps:get(output, Opts),
     Format = maps:get(format, Opts),
 
-    rebar3_openapi_utils:info("Extracting OpenAPI from handler: ~s", [Handler]),
+    rebar3_openapi_utils:info("Extracting OpenAPI from handler: ~s", [HandlerPath]),
 
-    %% Extract OpenAPI spec from handler
-    case rebar3_openapi_extractor:extract_from_handler(Handler, Opts) of
+    %% Extract OpenAPI spec from handler file
+    case rebar3_openapi_extractor:extract_from_file(HandlerPath, Opts) of
         {ok, Spec} ->
             %% Write spec to output file
             case write_spec(Output, Spec, Format) of

@@ -111,6 +111,9 @@ validate_spec(_) ->
 -spec parse_yaml_file(file:filename()) -> {ok, openapi_spec()} | {error, term()}.
 parse_yaml_file(File) ->
     try
+        %% Ensure yamerl application is started
+        application:ensure_all_started(yamerl),
+        
         [Doc | _] = yamerl_constr:file(File, [{str_node_as_binary, true}]),
         Spec = yaml_to_map(Doc),
         case validate_spec(Spec) of
@@ -125,7 +128,10 @@ parse_yaml_file(File) ->
 -spec parse_yaml(binary()) -> {ok, openapi_spec()} | {error, term()}.
 parse_yaml(Content) ->
     try
-        [Doc | _] = yamerl_constr:string(binary_to_list(Content),
+        %% Ensure yamerl application is started
+        application:ensure_all_started(yamerl),
+        
+        [Doc | _] = yamerl_constr:string(binary_to_list(Content), 
                                          [{str_node_as_binary, true}]),
         Spec = yaml_to_map(Doc),
         case validate_spec(Spec) of

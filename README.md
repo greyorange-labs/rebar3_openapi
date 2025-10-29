@@ -55,13 +55,12 @@ Add to your project's `rebar.config`:
 
 ```bash
 rebar3 openapi generate \
-    --spec specs/my_api.yml \
-    --app my_app \
-    --handler my_api_handler \
+    --spec /path/to/specs/my_api.yml \
+    --handler /path/to/src/my_api_handler.erl \
     --logic-module my_api_logic_handler
 ```
 
-This creates three files:
+This creates three files in the same directory as your handler:
 - `my_api_router.erl` - Router with trails() compatibility
 - `my_api_handler.erl` - REST handler with cowboy_rest callbacks
 - `my_api_logic_handler.erl` - Logic handler skeleton (implement your business logic here)
@@ -70,8 +69,7 @@ This creates three files:
 
 ```bash
 rebar3 openapi extract \
-    --handler my_api_handler \
-    --app my_app \
+    --handler /path/to/src/my_api_handler.erl \
     --output specs/my_api.yml
 ```
 
@@ -79,8 +77,8 @@ rebar3 openapi extract \
 
 ```bash
 rebar3 openapi validate \
-    --handler my_api_handler \
-    --spec specs/my_api.yml
+    --handler /path/to/src/my_api_handler.erl \
+    --spec /path/to/specs/my_api.yml
 ```
 
 **See [EXAMPLES.md](EXAMPLES.md) for detailed usage examples.**
@@ -114,15 +112,14 @@ rebar3 openapi validate \
 Generate Erlang handlers from OpenAPI specification.
 
 ```bash
-rebar3 openapi generate --spec SPEC --handler HANDLER [OPTIONS]
+rebar3 openapi generate --spec SPEC_PATH --handler HANDLER_PATH [OPTIONS]
 ```
 
 **Required Options:**
-- `--spec, -s` - Path to OpenAPI spec file (YAML or JSON)
-- `--handler, -h` - Handler module name
+- `--spec, -s` - Full path to OpenAPI spec file (YAML or JSON)
+- `--handler, -h` - Full path to handler file (e.g., `/path/to/src/my_handler.erl`)
 
 **Optional Options:**
-- `--app, -a` - Application name where handler will be generated
 - `--logic-module, -l` - Logic handler module name (default: `<handler>_logic_handler`)
 - `--package-name, -p` - Package name for openapi-generator (default: handler name)
 - `--update, -u` - Update existing handler (preserves business logic)
@@ -132,9 +129,8 @@ rebar3 openapi generate --spec SPEC --handler HANDLER [OPTIONS]
 **Example:**
 ```bash
 rebar3 openapi generate \
-    --spec specs/my_api.yml \
-    --app my_app \
-    --handler my_api_handler \
+    --spec /Users/me/project/specs/my_api.yml \
+    --handler /Users/me/project/apps/my_app/src/my_api_handler.erl \
     --dry-run
 ```
 
@@ -143,30 +139,21 @@ rebar3 openapi generate \
 Extract OpenAPI specification from Erlang handlers.
 
 ```bash
-rebar3 openapi extract --handler HANDLER --output OUTPUT [OPTIONS]
+rebar3 openapi extract --handler HANDLER_PATH --output OUTPUT [OPTIONS]
 ```
 
-**Single Handler Extraction:**
-- `--handler, -h` - Handler module name (required)
+**Required Options:**
+- `--handler, -h` - Full path to handler file (required)
 - `--output, -o` - Output file path (required)
-- `--app, -a` - Application name
-- `--format, -f` - Output format: `yaml` or `json` (default: yaml)
 
-**Batch Extraction:**
-- `--output-dir, -d` - Output directory (extracts all handlers)
-- `--app, -a` - Limit to specific application (optional)
+**Optional Options:**
+- `--format, -f` - Output format: `yaml` or `json` (auto-detected from file extension)
 
 **Example:**
 ```bash
-# Single handler
 rebar3 openapi extract \
-    --handler my_handler \
+    --handler /Users/me/project/apps/my_app/src/my_handler.erl \
     --output specs/my_api.yml
-
-# All handlers
-rebar3 openapi extract \
-    --app my_app \
-    --output-dir specs/
 ```
 
 ### Validate

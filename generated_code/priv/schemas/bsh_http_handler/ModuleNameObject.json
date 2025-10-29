@@ -1,0 +1,8 @@
+{
+  "properties":  {
+    "module_name":  {
+      "type":  "string"
+    }
+  },
+  "type":  "object"
+}

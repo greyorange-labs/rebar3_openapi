@@ -1,0 +1,11 @@
+{
+  "properties":  {
+    "function_name":  {
+      "type":  "string"
+    },
+    "module_name":  {
+      "type":  "string"
+    }
+  },
+  "type":  "object"
+}

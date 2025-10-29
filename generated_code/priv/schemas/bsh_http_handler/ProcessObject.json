@@ -1,0 +1,15 @@
+{
+  "properties":  {
+    "disable_after":  {
+      "description":  "Optional parameter to disable after a specified time",
+      "type":  "integer"
+    },
+    "process_name":  {
+      "type":  "string"
+    }
+  },
+  "required":  [
+    "process_name"
+  ],
+  "type":  "object"
+}

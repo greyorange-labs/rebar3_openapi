@@ -1,0 +1,8 @@
+{
+  "properties":  {
+    "process_name":  {
+      "type":  "string"
+    }
+  },
+  "type":  "object"
+}

@@ -1,0 +1,51 @@
+{
+  "properties":  {
+    "category":  {
+      "description":  "The specific test category name",
+      "type":  "string"
+    },
+    "details":  {
+      "description":  "Details about the test result",
+      "items":  {
+        "type":  "string"
+      },
+      "type":  "array"
+    },
+    "entity_id":  {
+      "description":  "The ID of the entity being tested (if applicable)",
+      "type":  "string"
+    },
+    "entity_type":  {
+      "description":  "The type of entity being tested (if applicable)",
+      "type":  "string"
+    },
+    "error_codes":  {
+      "description":  "Error codes associated with any failures",
+      "items":  {
+        "type":  "string"
+      },
+      "type":  "array"
+    },
+    "last_run_at":  {
+      "description":  "Last diagnose run time in UTC",
+      "type":  "string"
+    },
+    "service":  {
+      "description":  "The service associated with the test",
+      "type":  "string"
+    },
+    "status":  {
+      "description":  "The status of the test",
+      "enum":  [
+        "pass",
+        "fail"
+      ],
+      "type":  "string"
+    },
+    "test":  {
+      "description":  "The name of the test",
+      "type":  "string"
+    }
+  },
+  "type":  "object"
+}

@@ -1,0 +1,9 @@
+{
+  "properties":  {
+    "error":  {
+      "description":  "Error message describing the issue",
+      "type":  "string"
+    }
+  },
+  "type":  "object"
+}

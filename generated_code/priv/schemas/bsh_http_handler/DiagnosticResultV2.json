@@ -1,0 +1,44 @@
+{
+  "properties":  {
+    "entity_id":  {
+      "description":  "The ID of the entity being tested",
+      "type":  "string"
+    },
+    "entity_type":  {
+      "description":  "The type of entity being tested",
+      "type":  "string"
+    },
+    "error_codes":  {
+      "description":  "An array of error codes if any",
+      "items":  {
+        "type":  "string"
+      },
+      "type":  "array"
+    },
+    "level":  {
+      "description":  "The severity level of the test result",
+      "type":  "integer"
+    },
+    "parent_test":  {
+      "description":  "The parent test name",
+      "type":  "string"
+    },
+    "service":  {
+      "description":  "The service related to the test",
+      "type":  "string"
+    },
+    "status":  {
+      "description":  "The status of the test result",
+      "type":  "string"
+    },
+    "test":  {
+      "description":  "Test name",
+      "type":  "string"
+    },
+    "test_count":  {
+      "description":  "The count of tests run",
+      "type":  "integer"
+    }
+  },
+  "type":  "object"
+}

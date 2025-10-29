@@ -1,0 +1,16 @@
+{
+  "items":  {
+    "oneOf":  [
+      {
+        "$ref":  "#/components/schemas/ProcessObject"
+      },
+      {
+        "$ref":  "#/components/schemas/ModuleObject"
+      },
+      {
+        "$ref":  "#/components/schemas/ModuleFunctionObject"
+      }
+    ]
+  },
+  "type":  "array"
+}

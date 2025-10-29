@@ -1,0 +1,705 @@
+{
+  "openapi" : "3.0.0",
+  "info" : {
+    "description" : "Consolidated API for Butler Shared services including:\n- Infrastructure diagnostics\n- Service diagnostics (v1 and v2)\n- Advanced logging controls\n- Service status\n",
+    "title" : "Butler Shared API",
+    "version" : "1.0.0"
+  },
+  "servers" : [ {
+    "description" : "Local development server",
+    "url" : "http://localhost:8181"
+  } ],
+  "paths" : {
+    "/api/butler_shared/diagnose/infra" : {
+      "post" : {
+        "description" : "Retrieve diagnostic information about the infrastructure that butler_core talks to.",
+        "operationId" : "diagnose_infra",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/diagnose_infra_request"
+              }
+            }
+          },
+          "description" : "Payload for diagnostics API",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/InfraDiagnosticResult"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Successful response"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InfraDiagnosticError"
+                }
+              }
+            },
+            "description" : "Invalid Tests Requested"
+          }
+        },
+        "summary" : "Get Infrastructure Diagnostics Result"
+      }
+    },
+    "/api/{service_name}/v1/diagnose" : {
+      "post" : {
+        "operationId" : "diagnose_service_v1",
+        "parameters" : [ {
+          "description" : "The name of the service",
+          "explode" : false,
+          "in" : "path",
+          "name" : "service_name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          },
+          "style" : "simple"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/diagnose_service_v1_request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DiagnosticResultV1"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Successful response"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Bad request"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Internal server error"
+          }
+        },
+        "summary" : "Run diagnostic tests for a specific service diagnose category"
+      }
+    },
+    "/api/{service_name}/v2/diagnose" : {
+      "post" : {
+        "description" : "Runs specified tests to determine the health status of the system",
+        "operationId" : "diagnose_service_v2",
+        "parameters" : [ {
+          "description" : "The name of the service",
+          "explode" : false,
+          "in" : "path",
+          "name" : "service_name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          },
+          "style" : "simple"
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/diagnose_service_v2_request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/DiagnosticResultV2"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "Successful response with test results"
+          },
+          "400" : {
+            "description" : "Bad request due to invalid input"
+          },
+          "500" : {
+            "description" : "Internal server error"
+          }
+        },
+        "summary" : "Diagnose system health"
+      }
+    },
+    "/api/butler_shared/v1/logging/debug/enable" : {
+      "post" : {
+        "operationId" : "enable_debug_logging",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DebugLogging"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DebugLogging"
+                }
+              }
+            },
+            "description" : "Successful operation"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DebugLogging"
+                }
+              }
+            },
+            "description" : "Unsuccessful operation"
+          }
+        },
+        "summary" : "Enable advanced logging"
+      }
+    },
+    "/api/butler_shared/v1/logging/debug/disable" : {
+      "post" : {
+        "operationId" : "disable_debug_logging",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DebugLoggingNameOnly"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "example" : "Successful",
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Successful operation"
+          },
+          "500" : {
+            "description" : "Service Unavailable"
+          }
+        },
+        "summary" : "Disable advanced logging"
+      }
+    },
+    "/api/butler_shared/v1/logging/debug" : {
+      "get" : {
+        "operationId" : "get_debug_logging_status",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DebugLogging"
+                }
+              }
+            },
+            "description" : "Successful operation"
+          }
+        },
+        "summary" : "Get advanced logging status"
+      }
+    },
+    "/v1/status" : {
+      "get" : {
+        "description" : "Returns the current status and version of the service with optional detailed information",
+        "operationId" : "get_service_status",
+        "parameters" : [ {
+          "description" : "Include detailed diagnostic information in the response",
+          "explode" : true,
+          "in" : "query",
+          "name" : "detailed",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          },
+          "style" : "form"
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceStatus"
+                }
+              }
+            },
+            "description" : "Successful response with the service status"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Internal Server Error"
+          }
+        },
+        "summary" : "Get Service Status"
+      }
+    },
+    "/v1/health" : {
+      "get" : {
+        "description" : "Simple health check to verify service is running and responsive",
+        "operationId" : "health_check",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/health_check_200_response"
+                }
+              }
+            },
+            "description" : "Service is healthy"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Service is unhealthy"
+          }
+        },
+        "summary" : "Health Check Endpoint"
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "InfraDiagnosticResult" : {
+        "example" : {
+          "output" : 6,
+          "category_name" : "process_registration",
+          "threshold" : 0,
+          "error_codes" : [ "error_codes", "error_codes" ],
+          "test_name" : "workers_healthy",
+          "status" : "fail"
+        },
+        "properties" : {
+          "category_name" : {
+            "enum" : [ "process_registration", "influx", "kafka", "elastic", "postgres", "mnesia" ],
+            "type" : "string"
+          },
+          "test_name" : {
+            "example" : "workers_healthy",
+            "type" : "string"
+          },
+          "status" : {
+            "enum" : [ "fail", "pass", "undefined" ],
+            "type" : "string"
+          },
+          "error_codes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "threshold" : {
+            "type" : "integer"
+          },
+          "output" : {
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "InfraDiagnosticError" : {
+        "example" : {
+          "error" : "invalid_tests_requested",
+          "allowed_tests" : [ "process_registration", "influx", "kafka", "elastic", "postgres", "mnesia" ]
+        },
+        "properties" : {
+          "error" : {
+            "type" : "string"
+          },
+          "allowed_tests" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "DiagnosticResultV1" : {
+        "example" : {
+          "last_run_at" : "last_run_at",
+          "entity_type" : "entity_type",
+          "test" : "test",
+          "service" : "service",
+          "details" : [ "details", "details" ],
+          "error_codes" : [ "error_codes", "error_codes" ],
+          "category" : "category",
+          "entity_id" : "entity_id",
+          "status" : "pass"
+        },
+        "properties" : {
+          "status" : {
+            "description" : "The status of the test",
+            "enum" : [ "pass", "fail" ],
+            "type" : "string"
+          },
+          "service" : {
+            "description" : "The service associated with the test",
+            "type" : "string"
+          },
+          "category" : {
+            "description" : "The specific test category name",
+            "type" : "string"
+          },
+          "entity_type" : {
+            "description" : "The type of entity being tested (if applicable)",
+            "type" : "string"
+          },
+          "entity_id" : {
+            "description" : "The ID of the entity being tested (if applicable)",
+            "type" : "string"
+          },
+          "test" : {
+            "description" : "The name of the test",
+            "type" : "string"
+          },
+          "details" : {
+            "description" : "Details about the test result",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "error_codes" : {
+            "description" : "Error codes associated with any failures",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "last_run_at" : {
+            "description" : "Last diagnose run time in UTC",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DiagnosticResultV2" : {
+        "example" : {
+          "entity_type" : "entity_type",
+          "test" : "test",
+          "level" : 0,
+          "parent_test" : "parent_test",
+          "service" : "service",
+          "test_count" : 6,
+          "error_codes" : [ "error_codes", "error_codes" ],
+          "entity_id" : "entity_id",
+          "status" : "status"
+        },
+        "properties" : {
+          "status" : {
+            "description" : "The status of the test result",
+            "type" : "string"
+          },
+          "level" : {
+            "description" : "The severity level of the test result",
+            "type" : "integer"
+          },
+          "service" : {
+            "description" : "The service related to the test",
+            "type" : "string"
+          },
+          "test" : {
+            "description" : "Test name",
+            "type" : "string"
+          },
+          "parent_test" : {
+            "description" : "The parent test name",
+            "type" : "string"
+          },
+          "entity_type" : {
+            "description" : "The type of entity being tested",
+            "type" : "string"
+          },
+          "entity_id" : {
+            "description" : "The ID of the entity being tested",
+            "type" : "string"
+          },
+          "error_codes" : {
+            "description" : "An array of error codes if any",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "test_count" : {
+            "description" : "The count of tests run",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DebugLogging" : {
+        "items" : {
+          "$ref" : "#/components/schemas/DebugLogging_inner"
+        },
+        "type" : "array"
+      },
+      "DebugLoggingNameOnly" : {
+        "items" : {
+          "$ref" : "#/components/schemas/DebugLoggingNameOnly_inner"
+        },
+        "type" : "array"
+      },
+      "ProcessObject" : {
+        "example" : {
+          "disable_after" : 0,
+          "process_name" : "process_name"
+        },
+        "properties" : {
+          "process_name" : {
+            "type" : "string"
+          },
+          "disable_after" : {
+            "description" : "Optional parameter to disable after a specified time",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "process_name" ],
+        "type" : "object"
+      },
+      "ModuleObject" : {
+        "properties" : {
+          "module_name" : {
+            "type" : "string"
+          },
+          "disable_after" : {
+            "description" : "Optional parameter to disable after a specified time",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "module_name" ],
+        "type" : "object"
+      },
+      "ModuleFunctionObject" : {
+        "properties" : {
+          "module_name" : {
+            "type" : "string"
+          },
+          "function_name" : {
+            "type" : "string"
+          },
+          "disable_after" : {
+            "description" : "Optional parameter to disable after a specified time",
+            "type" : "integer"
+          }
+        },
+        "required" : [ "function_name", "module_name" ],
+        "type" : "object"
+      },
+      "ProcessNameObject" : {
+        "example" : {
+          "process_name" : "process_name"
+        },
+        "properties" : {
+          "process_name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ModuleNameObject" : {
+        "properties" : {
+          "module_name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FunctionNameObject" : {
+        "properties" : {
+          "module_name" : {
+            "type" : "string"
+          },
+          "function_name" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ServiceStatus" : {
+        "example" : {
+          "version" : "7.2.0",
+          "start_status" : "started"
+        },
+        "properties" : {
+          "version" : {
+            "description" : "The version of the service",
+            "example" : "7.2.0",
+            "type" : "string"
+          },
+          "start_status" : {
+            "description" : "The startup status of the service",
+            "enum" : [ "started", "starting" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ErrorResponse" : {
+        "example" : {
+          "error" : "error"
+        },
+        "properties" : {
+          "error" : {
+            "description" : "Error message describing the issue",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "diagnose_infra_request" : {
+        "properties" : {
+          "tests" : {
+            "items" : {
+              "enum" : [ "process_registration", "influx", "kafka", "elastic", "postgres", "all", "mnesia" ],
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "diagnose_service_v1_request" : {
+        "description" : "A list of tests to run for the specified service",
+        "properties" : {
+          "tests" : {
+            "example" : [ "pick", "put" ],
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "tests" ],
+        "type" : "object"
+      },
+      "diagnose_service_v2_request" : {
+        "properties" : {
+          "tests" : {
+            "description" : "An array of specific tests to run for diagnosis. Use ['all'] to run all available tests",
+            "example" : [ "all" ],
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "infra_list" : {
+            "description" : "An array of specific infra tests to run for diagnosis. If not passed in the payload, all infra client tests will be executed",
+            "example" : [ "kafka", "gen_saga" ],
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        },
+        "required" : [ "tests" ],
+        "type" : "object"
+      },
+      "health_check_200_response" : {
+        "example" : {
+          "uptime_seconds" : 0,
+          "status" : "healthy",
+          "timestamp" : "2000-01-23T04:56:07.000+00:00"
+        },
+        "properties" : {
+          "status" : {
+            "enum" : [ "healthy", "degraded", "unhealthy" ],
+            "type" : "string"
+          },
+          "timestamp" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "uptime_seconds" : {
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DebugLogging_inner" : {
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/ProcessObject"
+        }, {
+          "$ref" : "#/components/schemas/ModuleObject"
+        }, {
+          "$ref" : "#/components/schemas/ModuleFunctionObject"
+        } ]
+      },
+      "DebugLoggingNameOnly_inner" : {
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/ProcessNameObject"
+        }, {
+          "$ref" : "#/components/schemas/ModuleNameObject"
+        }, {
+          "$ref" : "#/components/schemas/FunctionNameObject"
+        } ]
+      }
+    }
+  }
+}

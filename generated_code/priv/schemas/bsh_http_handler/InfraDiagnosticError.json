@@ -1,0 +1,25 @@
+{
+  "example":  {
+    "allowed_tests":  [
+      "process_registration",
+      "influx",
+      "kafka",
+      "elastic",
+      "postgres",
+      "mnesia"
+    ],
+    "error":  "invalid_tests_requested"
+  },
+  "properties":  {
+    "allowed_tests":  {
+      "items":  {
+        "type":  "string"
+      },
+      "type":  "array"
+    },
+    "error":  {
+      "type":  "string"
+    }
+  },
+  "type":  "object"
+}

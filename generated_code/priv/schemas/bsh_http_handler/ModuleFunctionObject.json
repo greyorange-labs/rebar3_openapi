@@ -1,0 +1,19 @@
+{
+  "properties":  {
+    "disable_after":  {
+      "description":  "Optional parameter to disable after a specified time",
+      "type":  "integer"
+    },
+    "function_name":  {
+      "type":  "string"
+    },
+    "module_name":  {
+      "type":  "string"
+    }
+  },
+  "required":  [
+    "module_name",
+    "function_name"
+  ],
+  "type":  "object"
+}

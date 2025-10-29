@@ -1,0 +1,40 @@
+{
+  "properties":  {
+    "category_name":  {
+      "enum":  [
+        "process_registration",
+        "influx",
+        "kafka",
+        "elastic",
+        "postgres",
+        "mnesia"
+      ],
+      "type":  "string"
+    },
+    "error_codes":  {
+      "items":  {
+        "type":  "string"
+      },
+      "type":  "array"
+    },
+    "output":  {
+      "type":  "integer"
+    },
+    "status":  {
+      "enum":  [
+        "fail",
+        "pass",
+        "undefined"
+      ],
+      "type":  "string"
+    },
+    "test_name":  {
+      "example":  "workers_healthy",
+      "type":  "string"
+    },
+    "threshold":  {
+      "type":  "integer"
+    }
+  },
+  "type":  "object"
+}
